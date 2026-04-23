@@ -13,6 +13,11 @@
       --rose: #ffb3d1;
       --lilac: #d4a8ff;
       --white-soft: #fff0f8;
+      --card-radius: 26px;
+      --card-padding-h: 26px;
+      --card-padding-v: 30px;
+      --card-max: 440px;
+      --card-margin: 16px;
     }
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     html, body {
@@ -23,7 +28,6 @@
       overflow-x: hidden;
     }
 
-    /* Emojis never italic */
     .em { font-style: normal; }
 
     /* ── Starfield ── */
@@ -91,16 +95,17 @@
       50%      { transform:rotate(8deg) scale(1.2); filter:drop-shadow(0 0 16px var(--gold)); }
     }
 
-    /* ── Card ── */
+    /* ── Shared card style ── */
     .card {
-      width:calc(100% - 32px); max-width:440px;
-      background:var(--card-bg);
-      border:1px solid var(--card-border);
-      border-radius:26px;
-      padding:30px 26px 34px;
-      backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px);
-      box-shadow:0 4px 48px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05);
-      position:relative; overflow:hidden;
+      width: calc(100% - var(--card-margin) * 2);
+      max-width: var(--card-max);
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--card-radius);
+      padding: var(--card-padding-v) var(--card-padding-h) calc(var(--card-padding-v) + 4px);
+      backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+      box-shadow: 0 4px 48px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05);
+      position: relative; overflow: hidden;
     }
     .card::before {
       content:''; position:absolute; top:-40%; left:-30%;
@@ -122,7 +127,6 @@
       transition:opacity 0.55s ease, transform 0.55s ease;
     }
     .p-line.vis { opacity:1; transform:none; }
-
     .p-line.name-line {
       font-style:italic;
       font-weight:600;
@@ -142,8 +146,7 @@
     .cursor {
       display:inline-block; width:1.5px; height:0.9em;
       background:var(--lilac); vertical-align:middle; margin-left:2px;
-      animation:blink 0.75s step-end infinite;
-      font-style:normal;
+      animation:blink 0.75s step-end infinite; font-style:normal;
     }
     @keyframes blink { 50%{opacity:0;} }
 
@@ -153,9 +156,16 @@
       margin:20px auto 0; opacity:0.4;
     }
 
-    /* ── Buttons ── */
-    #btn-card { width:calc(100% - 32px); max-width:440px; opacity:0; transition:opacity 0.8s ease; }
+    /* ── Buttons card — perfectly aligned with poem card ── */
+    #btn-card {
+      width: calc(100% - var(--card-margin) * 2);
+      max-width: var(--card-max);
+      opacity:0; transition:opacity 0.8s ease;
+    }
     #btn-card.vis { opacity:1; }
+    /* inner card inside btn-card takes full width */
+    #btn-card .card { width:100%; max-width:none; }
+
     #btn-wrap { display:flex; flex-direction:column; align-items:center; gap:14px; width:100%; }
 
     .btn {
@@ -191,7 +201,7 @@
     #btn-no:active { transform:scale(0.97); }
 
     /* ── Yes screen ── */
-    #yes-card { display:none; width:calc(100% - 32px); max-width:440px; }
+    #yes-card { display:none; width:calc(100% - var(--card-margin) * 2); max-width:var(--card-max); }
     #yes-card.show { display:block; animation:zoomIn 0.7s cubic-bezier(.34,1.56,.64,1) both; }
     @keyframes zoomIn {
       from { opacity:0; transform:scale(0.78); }
@@ -215,16 +225,12 @@
       text-align:center;
     }
     .yes-text .hl {
-      font-weight:700;
-      font-style:italic;
-      font-size:1.25em;
-      color:var(--gold);
+      font-weight:700; font-style:italic;
+      font-size:1.25em; color:var(--gold);
     }
     .yes-text .hl-rose {
-      font-weight:700;
-      font-style:normal;
-      font-size:1.35em;
-      color:var(--rose);
+      font-weight:700; font-style:normal;
+      font-size:1.35em; color:var(--rose);
     }
     .hearts {
       text-align:center; font-size:1.6rem; margin-top:24px;
@@ -339,7 +345,7 @@
   }
 })();
 
-/* ── Music ── */
+/* ── Music: auto-play on load, retry on first interaction ── */
 const music = document.getElementById('music');
 const fab   = document.getElementById('music-fab');
 let playing = false;
@@ -350,36 +356,49 @@ function tryPlay() {
     .catch(() => {});
 }
 
-fab.addEventListener('click', () => {
+// Try immediately on load
+window.addEventListener('load', tryPlay);
+
+// Retry on first user interaction (needed on mobile)
+function onFirstInteract() {
+  if (!playing) tryPlay();
+}
+document.addEventListener('touchstart', onFirstInteract, { passive: true });
+document.addEventListener('click', onFirstInteract);
+
+fab.addEventListener('click', (e) => {
+  e.stopPropagation();
   if (playing) { music.pause(); fab.textContent = '🎵'; playing = false; }
   else tryPlay();
 });
 
-let autoStarted = false;
-function autoStart() { if (!autoStarted) { autoStarted = true; tryPlay(); } }
-document.addEventListener('touchstart', autoStart, { once: true, passive: true });
-document.addEventListener('click',      autoStart, { once: true });
-
-/* ── Typewriter with emoji-safe splitting ── */
-// Splits text into array of characters/emoji graphemes
-function splitChars(str) {
-  return [...new Intl.Segmenter(undefined, {granularity:'grapheme'}).segment(str)].map(s=>s.segment);
-}
-
+/* ── Poem lines config ── */
 const lines = [
-  { text: "Heba ❤️,",                                                                    cls: "name-line"     },
-  { text: "You are my sunshine, the light that brightens even my darkest days ☀️"                             },
-  { text: "From the moment I met you, my world changed in the most beautiful way ✨"                           },
-  { text: "You've become my happiness, my peace, and the reason behind my best days 💜"                       },
-  { text: "Every moment with you feels like a dream I never want to wake up from 💕"                          },
-  { text: "I can't imagine a future without you by my side 👩‍❤️‍💋‍👨"                                              },
-  { text: "I want a lifetime of your smile, your laughter, and your love ♾️🥰"                                },
-  { text: "Will you do me the honor of becoming my wife? ❤️",                            cls: "question-line" },
+  { text: "Heba ❤️",                                                                                     cls: "name-line"     },
+  { text: "You are my sunshine, the light that brightens even my darkest days ☀️"                                             },
+  { text: "From the moment I met you, my world changed in the most beautiful way ✨"                                           },
+  { text: "You've become my happiness, my peace, and the reason behind my best days 💜"                                       },
+  { text: "Every moment with you feels like a dream I never want to wake up from 💕"                                          },
+  { text: "I can't imagine a future without you by my side 👩‍❤️‍💋‍👨"                                                              },
+  { text: "I want a lifetime of your smile, your laughter, and your love ♾️ 🥰"                                               },
+  { text: "Will you do me the honor of becoming my wife? ❤️ 💍",                                        cls: "question-line" },
 ];
 
-// Emoji detection
-const isEmoji = ch => /\p{Emoji}/u.test(ch) && !/[0-9#*]/u.test(ch);
+/* ── Emoji helpers ── */
+const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+function splitChars(str) {
+  return [...segmenter.segment(str)].map(s => s.segment);
+}
+function isEmoji(ch) {
+  return /\p{Emoji}/u.test(ch) && !/[0-9#*]/u.test(ch);
+}
+function buildLineHTML(text) {
+  return splitChars(text)
+    .map(ch => isEmoji(ch) ? `<span class="em">${ch}</span>` : ch)
+    .join('');
+}
 
+/* ── Build DOM ── */
 const wrap    = document.getElementById('poem-wrap');
 const btnCard = document.getElementById('btn-card');
 const lineEls = [];
@@ -396,12 +415,7 @@ const cur = document.createElement('span');
 cur.className = 'cursor';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// Builds the final HTML for a line wrapping emojis in <span class="em">
-function buildLineHTML(text) {
-  const chars = splitChars(text);
-  return chars.map(ch => isEmoji(ch) ? `<span class="em">${ch}</span>` : ch).join('');
-}
-
+/* ── Typewriter ── */
 async function type() {
   await sleep(900);
   for (let i = 0; i < lineEls.length; i++) {
@@ -414,7 +428,7 @@ async function type() {
     for (let c = 0; c < chars.length; c++) {
       const ch = chars[c];
       const node = isEmoji(ch)
-        ? (() => { const s=document.createElement('span'); s.className='em'; s.textContent=ch; return s; })()
+        ? (() => { const s = document.createElement('span'); s.className = 'em'; s.textContent = ch; return s; })()
         : document.createTextNode(ch);
       el.insertBefore(node, cur);
       const d = ch === ' ' ? 22 : isEmoji(ch) ? 55 : 30 + Math.random() * 20;
@@ -437,9 +451,9 @@ let noClicks = 0;
 
 btnNo.addEventListener('click', () => {
   noClicks = Math.min(noClicks + 1, 16);
-  btnYes.style.fontSize  = (1.35 + noClicks * 0.2)  + 'rem';
-  btnYes.style.padding   = (17   + noClicks * 5)     + 'px 24px';
-  btnYes.style.boxShadow = `0 ${6+noClicks*3}px ${28+noClicks*10}px rgba(160,40,220,${Math.min(0.9,0.55+noClicks*0.03)})`;
+  btnYes.style.fontSize  = (1.35 + noClicks * 0.2) + 'rem';
+  btnYes.style.padding   = (17   + noClicks * 5)   + 'px 24px';
+  btnYes.style.boxShadow = `0 ${6+noClicks*3}px ${28+noClicks*10}px rgba(160,40,220,${Math.min(0.9, 0.55+noClicks*0.03)})`;
   btnNo.style.fontSize   = Math.max(0.6,  1.05 - noClicks * 0.04) + 'rem';
   btnNo.style.opacity    = Math.max(0.15, 1    - noClicks * 0.07) + '';
   btnNo.animate(
